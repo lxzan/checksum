@@ -2,12 +2,26 @@ package checksum
 
 import (
 	"encoding/hex"
+	"github.com/lxzan/checksum/internal"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
 	as := assert.New(t)
+
+	as.Equal(8, New().Size())
+	as.Equal(64, New().BlockSize())
+
+	var shuffle = func(list []string) []string {
+		var n = len(list)
+		for k := 0; k < n; k++ {
+			var i = internal.AlphabetNumeric.Intn(n)
+			var j = internal.AlphabetNumeric.Intn(n)
+			list[i], list[j] = list[j], list[i]
+		}
+		return list
+	}
 
 	var arr = []string{
 		"02fc5d226d4522bb88ce965540c51b41",
@@ -19,9 +33,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("order", func(t *testing.T) {
 		checker1 := New()
-		checker1.Write([]byte(arr[0]))
-		checker1.Write([]byte(arr[1]))
-		checker1.Write([]byte(arr[2]))
+		checker1.WriteStrings([]string{arr[0], arr[1], arr[2]})
 
 		checker2 := New()
 		checker2.Write([]byte(arr[2]))
@@ -84,5 +96,49 @@ func TestNew(t *testing.T) {
 		hash3 := checker3.Sum64()
 		as.Equal(true, hash1 == hash2)
 		as.Equal(false, hash1 == hash3)
+	})
+
+	t.Run("random base64", func(t *testing.T) {
+		var list []string
+		for i := 0; i < 1000; i++ {
+			var n = internal.AlphabetNumeric.Intn(32)
+			var s = string(internal.AlphabetNumeric.Generate(n))
+			list = append(list, s)
+		}
+
+		var h = New()
+		for _, s := range list {
+			h.Write([]byte(s))
+		}
+		var code1 = h.SumBase64()
+
+		list = shuffle(list)
+		h.Reset()
+		for _, s := range list {
+			h.WriteString(s)
+		}
+		var code2 = h.SumBase64()
+		as.Equal(code1, code2)
+	})
+
+	t.Run("random hex", func(t *testing.T) {
+		var list []string
+		for i := 0; i < 1000; i++ {
+			var n = internal.AlphabetNumeric.Intn(32)
+			var s = string(internal.AlphabetNumeric.Generate(n))
+			list = append(list, s)
+		}
+
+		var h = New()
+		for _, s := range list {
+			h.Write([]byte(s))
+		}
+		var code1 = h.SumHex()
+
+		list = shuffle(list)
+		h.Reset()
+		h.WriteStrings(list)
+		var code2 = h.SumHex()
+		as.Equal(code1, code2)
 	})
 }
